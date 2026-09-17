@@ -16,9 +16,9 @@ const INSTAGRAM_URL = "https://www.instagram.com/arq.katiaguerreiro";
 
 // ── Imagens das perguntas ──
 // Arquivos em public/images/ no padrão: p{pergunta}-{estilo}.{ext}
-// Ex.: p1-moderno.png
-// O código tenta .png, depois .jpeg, depois .jpg — nessa ordem.
-const IMG_EXTS = ["png", "jpeg", "jpg"];
+// Ex.: p1-moderno.jpeg
+// O código tenta .jpeg, depois .jpg, depois .png — nessa ordem.
+const IMG_EXTS = ["jpeg", "jpg", "png"];
 
 const SLUG_PERFIL = {
   M: "moderno",
@@ -200,7 +200,7 @@ const QUESTIONS = [
       { profile: "M", text: "Excesso de objetos e informação visual" },
       { profile: "E", text: "Falta de personalidade, tudo genérico" },
       { profile: "N", text: "Ambientes artificiais, frios e sem textura ou conexão com a natureza" },
-      { profile: "C", text: "Falta de sofisticação, acabamentos pobres" },
+      { profile: "C", text: "Falta de sofisticação, materiais e acabamentos de baixa qualidade." },
       { profile: "I", text: "Ambientes fechados e sem amplitude" },
       { profile: "B", text: "Casas fechadas para o exterior, sem ventilação, paisagem ou identidade brasileira" },
     ],
@@ -853,7 +853,7 @@ function LeadCaptureScreen({ onSubmit, sending }) {
             fontFamily: FONT, fontSize: 16, fontWeight: 300, lineHeight: 1.7, color: C.body,
           }}>
             Preencha os campos abaixo para ver o seu perfil completo e receber
-            referências visuais selecionadas para o seu estilo.
+            o resultado por e-mail.
           </p>
         </div>
 
