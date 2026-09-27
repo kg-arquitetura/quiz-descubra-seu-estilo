@@ -20,6 +20,66 @@ const INSTAGRAM_URL = "https://www.instagram.com/arq.katiaguerreiro";
 // O código tenta .jpeg, depois .jpg, depois .png — nessa ordem.
 const IMG_EXTS = ["jpeg", "jpg", "png"];
 
+// ── Código de sessão ──
+// Código aleatório gerado no clique em "Começar". Liga o início do quiz ao
+// lead gravado no fim, sem carregar nenhum dado pessoal.
+// Fica guardado na aba do navegador, então recarregar a página ou voltar uma
+// pergunta não gera um novo início.
+const CHAVE_SESSAO = "kg-sessao";
+
+function novoCodigoSessao() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return "s-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+}
+
+function lerSessao() {
+  try {
+    return sessionStorage.getItem(CHAVE_SESSAO) || "";
+  } catch (err) {
+    // Navegação privada ou armazenamento bloqueado
+    return "";
+  }
+}
+
+function guardarSessao(codigo) {
+  try {
+    sessionStorage.setItem(CHAVE_SESSAO, codigo);
+  } catch (err) {
+    // Sem armazenamento, o início ainda é registrado — só não é reaproveitado
+  }
+}
+
+// Envia um aviso ao Apps Script. Com usarBeacon, o envio sobrevive ao
+// fechamento da aba; sem ele, cai no fetch comum.
+function enviarParaScript(payload, usarBeacon) {
+  if (!GOOGLE_SHEETS_URL || GOOGLE_SHEETS_URL.indexOf("COLE_AQUI") === 0) {
+    console.warn("URL do Google Sheets ainda não configurada. Dados não enviados.");
+    return Promise.resolve();
+  }
+
+  const corpo = JSON.stringify(payload);
+
+  if (usarBeacon && typeof navigator !== "undefined" && navigator.sendBeacon) {
+    try {
+      const blob = new Blob([corpo], { type: "text/plain;charset=utf-8" });
+      if (navigator.sendBeacon(GOOGLE_SHEETS_URL, blob)) return Promise.resolve();
+    } catch (err) {
+      // Segue para o fetch abaixo
+    }
+  }
+
+  return fetch(GOOGLE_SHEETS_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: corpo,
+  }).catch(err => {
+    console.error("Erro ao enviar para o Google Sheets:", err);
+  });
+}
+
 const SLUG_PERFIL = {
   M: "moderno",
   C: "classico",
@@ -1379,6 +1439,20 @@ export default function App() {
 
   useEffect(() => { window.scrollTo(0, 0); }, [screen, currentQ]);
 
+  // Registra o início do quiz. Só conta uma vez por aba do navegador.
+  const registrarInicio = () => {
+    if (lerSessao()) return;
+
+    const sessao = novoCodigoSessao();
+    guardarSessao(sessao);
+    enviarParaScript({ chave: CHAVE_QUIZ, tipo: "inicio", sessao: sessao }, true);
+  };
+
+  const handleStart = () => {
+    registrarInicio();
+    setScreen("quiz");
+  };
+
   const handleAnswer = (profile) => {
     const newAnswers = [...answers, profile];
     setAnswers(newAnswers);
@@ -1399,13 +1473,10 @@ export default function App() {
   };
 
   const sendToSheets = async (leadData, resultData) => {
-    if (!GOOGLE_SHEETS_URL || GOOGLE_SHEETS_URL.indexOf("COLE_AQUI") === 0) {
-      console.warn("URL do Google Sheets ainda não configurada. Dados não enviados.");
-      return;
-    }
-
     const payload = {
       chave: CHAVE_QUIZ,
+      tipo: "lead",
+      sessao: lerSessao(),
       dataHora: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
       nome: leadData.nome,
       email: leadData.email,
@@ -1428,16 +1499,7 @@ export default function App() {
       respostas: answers.join(", "),
     };
 
-    try {
-      await fetch(GOOGLE_SHEETS_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(payload),
-      });
-    } catch (err) {
-      console.error("Erro ao enviar para o Google Sheets:", err);
-    }
+    await enviarParaScript(payload, false);
   };
 
   const handleLeadSubmit = async (leadData) => {
@@ -1460,7 +1522,7 @@ export default function App() {
         ::selection { background: #9A5B2B; color: #FCFCFC; }
       `}</style>
 
-      {screen === "welcome" && <WelcomeScreen onStart={() => setScreen("quiz")} />}
+      {screen === "welcome" && <WelcomeScreen onStart={handleStart} />}
       {screen === "quiz" && (
         <QuestionScreen
           question={QUESTIONS[currentQ]}
